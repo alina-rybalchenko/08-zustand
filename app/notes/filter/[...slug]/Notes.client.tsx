@@ -7,12 +7,10 @@ import { fetchNotes } from '@/lib/api';
 import NoteList from '@/components/NoteList/NoteList';
 import Pagination from '@/components/Pagination/Pagination';
 import SearchBox from '@/components/SearchBox/SearchBox';
-import Modal from '@/components/Modal/Modal';
-import NoteForm from '@/components/NoteForm/NoteForm';
 import Error from '@/components/Error/Error';
-import useModalControl from '@/hooks/useModalControl';
 import { toast, Toaster } from 'react-hot-toast';
 import css from './NotesPage.module.css';
+import Link from 'next/link';
 
 interface NotesClientProps {
   tag?: string;
@@ -21,7 +19,7 @@ interface NotesClientProps {
 export default function NotesClient({ tag }: NotesClientProps) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  const { isModalOpen, openModal, closeModal } = useModalControl();
+  const [inputValue, setInputValue] = useState('');
 
   const {
     data: response,
@@ -32,7 +30,6 @@ export default function NotesClient({ tag }: NotesClientProps) {
   } = useQuery({
     queryKey: ['notes', search, page, tag],
     queryFn: () => fetchNotes({ search, page, tag }),
-
     placeholderData: keepPreviousData,
     refetchOnMount: false,
   });
@@ -40,10 +37,10 @@ export default function NotesClient({ tag }: NotesClientProps) {
   const totalPages = response?.totalPages ?? 0;
 
   useEffect(() => {
-    if (response?.notes.length === 0) {
+    if (isSuccess && response?.notes.length === 0) {
       toast.error('No notes found for your request.');
     }
-  }, [response?.notes.length]);
+  }, [isSuccess, response?.notes.length]);
 
   const handleSearch = useDebouncedCallback((value: string) => {
     setSearch(value);
@@ -53,10 +50,14 @@ export default function NotesClient({ tag }: NotesClientProps) {
   return (
     <section className={css.app}>
       <Toaster />
+
       <div className={css.toolbar}>
         <SearchBox
-          search={search}
-          onChange={e => handleSearch(e.target.value)}
+          search={inputValue}
+          onChange={e => {
+            setInputValue(e.target.value);
+            handleSearch(e.target.value);
+          }}
         />
 
         {totalPages > 0 && (
@@ -66,18 +67,18 @@ export default function NotesClient({ tag }: NotesClientProps) {
             onPageChange={setPage}
           />
         )}
-        <button className={css.button} onClick={openModal}>
+
+        <Link className={css.button} href="/notes/action/create">
           Create note +
-        </button>
+        </Link>
       </div>
+
       {(isLoading || isFetching) && <p>Loading...</p>}
       {isError && <Error />}
-      {isSuccess && <NoteList notes={response.notes} />}
-      {isModalOpen && (
-        <Modal onClose={closeModal}>
-          <NoteForm onSuccessClose={closeModal} onCancel={closeModal} />
-        </Modal>
+      {isSuccess && response?.notes.length > 0 && (
+        <NoteList notes={response.notes} />
       )}
+
       {totalPages > 0 && (
         <div className={css.bottomPagination}>
           <Pagination
